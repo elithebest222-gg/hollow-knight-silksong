@@ -6,6 +6,8 @@
     <title>Unity Web Player | Hollow Knight SilkSong</title>
     <link rel="shortcut icon" href="TemplateData/favicon.ico">
     <link rel="stylesheet" href="TemplateData/style.css">
+    <!-- Canonical link fallback to satisfy loaders looking for base href references -->
+    <link rel="canonical" href="https://vercel.app">
     <style>
         /* Custom Embedded Dev Log Overlay */
         #embedded-debug-console {
@@ -23,15 +25,23 @@
             padding: 10px;
             box-sizing: border-box;
             border-top: 2px solid #444;
-            display: block; /* Change to 'none' if you want it hidden by default */
+            display: block;
         }
-        .log-entry { margin-bottom: 4px; border-bottom: 1px solid #222; }
-        .log-error { color: #ff3333; }
-        .log-warn { color: #ffff33; }
+        .log-entry {
+            margin-bottom: 4px;
+            border-bottom: 1px solid #222;
+        }
+        .log-error {
+            color: #ff3333;
+        }
+        .log-warn {
+            color: #ffff33;
+        }
     </style>
 </head>
 <body>
     <div id="loading-text" style="color: white; font-size: 48px; font-family: cursive; text-align: center; margin-top: 20px;">LOADING...</div>
+    
     <div id="unity-container">
         <canvas id="unity-canvas" width="960" height="600" tabindex="-1"></canvas>
         <div id="unity-loading-bar">
@@ -48,10 +58,10 @@
         <div class="log-entry">[System] Native Dev Tools Embed Activated. Monitoring console.log...</div>
     </div>
 
-    <!-- jszip.js is no longer required as files are already unzipped -->
     <script>
         // --- Bypassing Console Restrictions & Injecting Debug Logs ---
         const debugConsole = document.getElementById("embedded-debug-console");
+        
         function logToEmbed(message, type = 'info') {
             const entry = document.createElement("div");
             entry.classList.add("log-entry");
@@ -92,7 +102,25 @@
                 debugConsole.style.display = debugConsole.style.display === 'none' ? 'block' : 'none';
             }
         });
-        // -------------------------------------------------------------
+
+        // --- Unity Loader Patch: Inject missing DOM elements & fix properties ---
+        if (!document.querySelector('link[rel="canonical"]')) {
+            const mockLink = document.createElement('link');
+            mockLink.rel = 'canonical';
+            mockLink.href = window.location.href;
+            document.head.appendChild(mockLink);
+        }
+
+        // Intercept and define currentScript to avoid 'null' object exceptions inside asynchronous scripts
+        if (!document.currentScript) {
+            Object.defineProperty(document, 'currentScript', {
+                get: function() {
+                    return document.getElementById('unity-loader') || document.scripts[document.scripts.length - 1];
+                },
+                configurable: true
+            });
+        }
+        // ---------------------------------------------------------------------
 
         const loadingText = document.querySelector("#loading-text");
         const canvas = document.querySelector("#unity-canvas");
@@ -137,7 +165,9 @@
         loadingText.textContent = "INITIALIZING GAME...";
 
         const script = document.createElement("script");
+        script.id = "unity-loader"; // Hardcoded anchor ID mapped to the document property interceptor above
         script.src = buildUrl + "/w-pt.loader.js";
+        
         script.onload = () => {
             createUnityInstance(canvas, config, (progress) => {
                 progressBarFull.style.width = (progress * 100) + "%";
@@ -152,9 +182,11 @@
                 loadingText.textContent = "ERROR: " + err.message;
             });
         };
+
         script.onerror = () => {
             loadingText.textContent = "ERROR: Failed to load w-pt.loader.js";
         };
+
         document.body.appendChild(script);
     </script>
 </body>
